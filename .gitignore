@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+.work/
+.cache/
+dist/
+build/
+**/target/
+*.jar
+*.tar
+*.tar.gz
+*.log
+*.svg

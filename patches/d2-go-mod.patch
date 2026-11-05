@@ -1,0 +1,29 @@
+diff --git a/go.mod b/go.mod
+--- a/go.mod
++++ b/go.mod
+@@ -24,10 +24,10 @@ require (
+ 	github.com/yuin/goldmark v1.8.5
+ 	go.uber.org/multierr v1.11.0
+ 	golang.org/x/image v0.45.0
+-	golang.org/x/net v0.57.0
+-	golang.org/x/sync v0.22.0
+-	golang.org/x/text v0.41.0
+-	golang.org/x/tools v0.48.0
++	golang.org/x/net v0.60.0
++	golang.org/x/sync v0.23.0
++	golang.org/x/text v0.42.0
++	golang.org/x/tools v0.49.0
+ )
+ 
+ require (
+@@ -39,8 +39,8 @@ require (
+ 	github.com/pmezard/go-difflib v1.0.0 // indirect
+ 	github.com/rogpeppe/go-internal v1.11.0 // indirect
+ 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
+-	golang.org/x/sys v0.47.0 // indirect
+-	golang.org/x/term v0.45.0 // indirect
++	golang.org/x/sys v0.48.0 // indirect
++	golang.org/x/term v0.46.0 // indirect
+ 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
+ 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+ 	gopkg.in/yaml.v3 v3.0.1 // indirect

@@ -11,3 +11,5 @@ build/
 *.tar.gz
 *.log
 *.svg
+reports/
+__pycache__/

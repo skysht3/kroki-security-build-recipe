@@ -55,6 +55,18 @@ ENV JAVA_VERSION=jdk-21.0.13+9
 # Ubuntu package state intentionally follows available security updates.
 RUN apt-get update \
     && apt-get upgrade -y \
+    && purge_plan="$(LC_ALL=C apt-get -s -o APT::Get::AutomaticRemove=false purge \
+        build-essential gcc g++ libc6-dev linux-libc-dev)" \
+    && printf '%s\n' "$purge_plan" \
+    && removed="$(printf '%s\n' "$purge_plan" | awk '$1 == "Purg" {print $2}')" \
+    && for package in $removed; do \
+        case "$package" in \
+          build-essential|gcc|g++|g++-*|*-dev|gobject-introspection|gobject-introspection-bin) ;; \
+          *) echo "Refusing to remove runtime package: $package" >&2; exit 1 ;; \
+        esac; \
+    done \
+    && apt-get purge -y -o APT::Get::AutomaticRemove=false \
+        build-essential gcc g++ libc6-dev linux-libc-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

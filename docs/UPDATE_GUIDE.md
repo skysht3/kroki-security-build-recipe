@@ -29,14 +29,20 @@ docker run --rm -d --name kroki-review \
   -e KROKI_SAFE_MODE=secure kroki-secure:review
 ./scripts/smoke-test.sh http://127.0.0.1:8001
 ./scripts/scan.sh kroki-secure:review
+./scripts/scan.sh kroki-secure:review \
+  --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
 docker rm -f kroki-review
 ```
 
 ※ 上のコマンドは空きポートとコンテナ名を確認してから実行します。`docker run --rm -d`は停止時に自動削除されるコンテナです。
+`build.sh`は既存タグを上書きしません。
+再実行時は新しい最終タグを使い、`-layered`付きのフラット化前タグも新規であることを確認します。
+失敗後にフラット化前イメージが残っている場合は、原因を修正した上で`./scripts/flatten-image.py kroki-secure:review-layered kroki-secure:review-retry`のように新規タグへ再実行できます。
 
 - Mavenの`clean verify`とD2の`go test ./...`はDockerfile内で実行する。
 - ヘルスチェックだけでは不十分なので、PlantUML、D2、GoatをSVGへ変換して確認する。
-- TrivyのLOW/MEDIUMと`--ignore-unfixed`を外した結果も必要に応じて確認する。
+- Trivyの全重大度検査と、修正版ありHIGH/CRITICALの判定を両方確認する。
+- フラット化前後のサイズ、イメージ設定、開発用パッケージの不在を確認する。コマンドは[検証記録](VALIDATION_2026-11-05.md#再実行コマンド)を参照する。
 - 検査の誤検出と実際の到達可能性は区別して記録する。
 
 ## 4. 採用判断・記録

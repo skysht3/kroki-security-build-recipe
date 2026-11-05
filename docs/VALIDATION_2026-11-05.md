@@ -50,8 +50,17 @@ Trivy`--severity HIGH,CRITICAL --ignore-unfixed`を使用。初期レポート�
 
 D2のコマンド`d2 --version`は`v0.8.1-HEAD`と表示された。ソースGit SHAはv0.9.0タグと一致しており、バージョン文字列の埋め込みは今後の確認事項。Mermaidの動作試験は実施していない。
 
+## 個人環境での再現確認（2026-11-05）
+
+- 公開用統合Dockerfileでクリーンビルド成功（Go 1.27.3）。
+- Health、PlantUML、D2、Goatのスモーク試験は全件PASSと報告。
+- TrivyのHIGH/CRITICALかつ修正版ありの検出はUbuntu、Kroki JAR、D2、Goatの4対象で0件。
+- 全重大度検査では未修正扱いの検出が多数あり、D2のx/net v0.60.0に対するUNKNOWNの修正可能な検出2件が判明。
+- D2 v0.9.0ソースでx/net v0.62.0と関連モジュールを更新し、Go 1.27.3でgo test ./...全件PASS。
+- **この更新パッチを組み込んだ最終イメージの再ビルド・全重大度再検査は未実施。**
+
 ## 公開用構成の未検証箇所
 
-- 統合Dockerfileのクリーンビルド（独立環境での再現）
-- ARM64、Mermaid、LOW/MEDIUMおよび修正版なしの検査
+- 更新したD2パッチを含む統合Dockerfileの再ビルドとスモーク試験
+- ARM64、Mermaidの動作試験、全重大度の検出結果に対する影響評価
 - ベースイメージ下位レイヤーを含む完全なクリーン再ビルド

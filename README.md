@@ -4,6 +4,12 @@ Krokiの公式コンテナイメージを基点に、確認時点で必要だっ
 
 **Unofficial build recipe for Kroki.** It provides source-pinned build instructions and verification scripts, not prebuilt images or a guarantee of security.
 
+## 保守・サポートについて
+
+このリポジトリは、継続的な保守、セキュリティ更新、利用者サポートを約束するものではありません。作者自身の利用環境で必要になった場合に更新することがありますが、更新頻度や将来の対応は保証しません。
+
+IssueやPull Requestへの対応も保証しません。このリポジトリを利用する場合は、上流Krokiや依存コンポーネントの更新、脆弱性情報、各自の利用環境への適合性を利用者自身で確認してください。
+
 ## 対象と方針
 
 - Kroki 0.34.0をベースに、既存の図形式を削除せず更新する

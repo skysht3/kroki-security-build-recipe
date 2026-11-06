@@ -26,7 +26,7 @@ Kroki公式イメージ`yuzutech/kroki:0.34.0`の取得Digest：`sha256:1314e60e
 | Jackson Databind | 2.22.2 → 2.22.3 |
 | Guava | 33.6.0-jre → 33.7.2-jre |
 | D2 | 0.7.1 → 0.9.0のソースで再ビルド |
-| D2の`golang.org/x/net` | 0.57.0 → 0.60.0 |
+| D2の`golang.org/x/net` | 0.57.0 → 0.62.0 |
 | Goat | v0.5.1をGo 1.27.3で再ビルド |
 | ビルド用Go | 1.27.3 |
 

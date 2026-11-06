@@ -1,4 +1,4 @@
-# Kroki security-maintained build recipe
+# Kroki security build recipe
 
 Krokiの公式コンテナイメージを基点に、確認時点で必要だった依存関係の更新を追加する非公式ビルド構成です。Dockerfile、パッチ、検証手順のみを管理し、ビルド済みのコンテナイメージ・JAR・実行ファイルは配布しません。
 
@@ -35,8 +35,8 @@ IssueやPull Requestへの対応も保証しません。このリポジトリを
 ## ビルドと確認
 
 ```bash
-git clone https://github.com/skysht3/kroki-secure-build.git
-cd kroki-secure-build
+git clone https://github.com/skysht3/kroki-security-build-recipe.git
+cd kroki-security-build-recipe
 
 ./scripts/build.sh
 docker run -d --name kroki-example --restart no \

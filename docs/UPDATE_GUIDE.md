@@ -1,52 +1,33 @@
 # 更新ガイド
 
-このリポジトリの正本は`Dockerfile`、`patches/`と検証手順です。上流Krokiの更新を最優先で評価し、独自パッチが不要なら削除する方針です。図形式を削ることを初期方針にはしません。
+上流Krokiのイメージを先に確認し、同じ修正が取り込まれた独自差分は外します。次の版へ上げるために描画形式を削る必要はありません。
 
-## 1. 情報収集
+## 1. 公式イメージを確認する
 
-1. [Kroki Releases](https://github.com/yuzutech/kroki/releases)、[D2 Releases](https://github.com/terrastruct/d2/releases)、[Goat](https://github.com/blampe/goat)の更新を確認。
-2. Java（Eclipse Temurin）、Go、Ubuntuのセキュリティ修正版を確認。
-3. 更新候補の公式Krokiイメージを先にTrivyで検査し、修正済みの独自差分を洗い出す。
-4. 各候補についてタグ・コミット・イメージDigest・検査日時を記録する。
+1. [Kroki Releases](https://github.com/yuzutech/kroki/releases) と [Security Advisories](https://github.com/yuzutech/kroki/security/advisories) を確認します。
+2. 更新候補の公式Linux AMD64のDigestを記録し、まずそのイメージをTrivyで検査します。タグだけで同じイメージだと判断しないでください。
+3. コンテナのOS、Java、Kroki JAR内の依存、D2・GoatのGoビルド情報を確認します。ソースの宣言と実際に梱包された依存の版は区別します。
 
-## 2. 差分の更新
+## 2. 必要な差分だけ更新する
 
-- 上流KrokiでJacksonやGuavaの修正版が使われていれば、`patches/kroki-server-pom.patch`を縮小または削除する。
-- D2の修正版がすでに`golang.org/x/net`等を更新していれば、`patches/d2-go-mod.patch`を縮小または削除する。
-- D2・Goatのビルドに使用するGoのパッチ版を見直す。`go.mod`の要求版とビルドに使用した版は別に確認する。
-- 上流のタグを更新したら、正しいコミットSHAに合わせてDockerfileの照合値を更新する。
-- ベースイメージのDigestと、Java・Go・Mavenイメージの固定方法を見直す。現状はすべてをDigest固定していない。
-- Mermaidは別コンテナのため別途更新し、検査・描画試験が通ってから構成へ追加する。
+- DockerfileのKrokiタグ、ソースコミットSHA、公式イメージのDigestを揃えます。ビルド用Maven・Goの版も確認します。
+- 現行のJava差分はGuavaのみです。公式JARに必要な修正が入ったら、パッチとJAR差し替えを削除します。
+- D2の依存が上流で修正済みなら、自前D2を差し替えず、公式イメージのD2を使います。再ビルドが必要な場合は、Krokiが期待するD2の安全化仕様を維持します。0.37.1ではKrokiソースの `server/ops/docker/d2/local-files.patch` を適用します。D2タグだけを合わせても同じ実装にはなりません。
+- `git apply --check` に失敗したら差分を見直します。検査を迂回しません。
+- OSパッケージの修正が必要なら、公式イメージの更新有無を先に確認します。対応が必要なパッケージが見つかった場合だけ追加更新を検討します。旧24.04向けの削除一覧やフラット化は引き継ぎません。
+- Mermaidなどの補助コンテナは別に検証します。主イメージの更新で置き換わるものではありません。
 
-パッチが適用できなくなったときに`git apply`の検査を迂回してはいけません。新しい上流ソースに合わせて差分の要否と内容を調べ直します。
+## 3. 新しいタグを検証する
 
-## 3. ビルドと検証
+[READMEのビルド・検証手順](../README.md#ビルドと確認)を、新しいタグと空いているポートで実行します。バージョンを再試験する場合もタグを変え、稼働中のタグを上書きしません。
 
-```bash
-./scripts/build.sh kroki-secure:review
-docker run --rm -d --name kroki-review \
-  -p 127.0.0.1:8001:8000 \
-  -e KROKI_SAFE_MODE=secure kroki-secure:review
-./scripts/smoke-test.sh http://127.0.0.1:8001
-./scripts/scan.sh kroki-secure:review
-./scripts/scan.sh kroki-secure:review \
-  --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
-docker rm -f kroki-review
-```
+- `/health` に加えて、PlantUML、D2、Goatの正常な図でSVGを確認します。利用環境で使う独自フォントや他の出力形式も追加します。
+- D2のローカルインポートや外部アイコンを使っている場合は、SECUREでの制約変更が通常の図に影響しないか確認します。
+- Trivyは全重大度の結果と、修正版があるHIGH/CRITICALの判定を分けて保存します。検出0件だけで安全と判断しません。
+- ソースSHA、公式ベースのDigest、生成したイメージID、検証日時、Trivyの版と結果、未実施事項を記録します。
 
-※ 上のコマンドは空きポートとコンテナ名を確認してから実行します。`docker run --rm -d`は停止時に自動削除されるコンテナです。
-`build.sh`は既存タグを上書きしません。
-再実行時は新しい最終タグを使い、`-layered`付きのフラット化前タグも新規であることを確認します。
-失敗後にフラット化前イメージが残っている場合は、原因を修正した上で`./scripts/flatten-image.py kroki-secure:review-layered kroki-secure:review-retry`のように新規タグへ再実行できます。
+## 4. 切り替える
 
-- Mavenの`clean verify`とD2の`go test ./...`はDockerfile内で実行する。
-- ヘルスチェックだけでは不十分なので、PlantUML、D2、GoatをSVGへ変換して確認する。
-- Trivyの全重大度検査と、修正版ありHIGH/CRITICALの判定を両方確認する。
-- フラット化前後のサイズ、イメージ設定、開発用パッケージの不在を確認する。コマンドは[検証記録](VALIDATION_2026-11-05.md#再実行コマンド)を参照する。
-- 検査の誤検出と実際の到達可能性は区別して記録する。
+導入先の審査・検証を済ませてから、既存設定のイメージ指定だけを新しいタグまたは承認済みDigestに変更します。公開ポートと `KROKI_SAFE_MODE=secure` は維持します。切り替え後にもヘルスと通常の描画を確認し、問題があれば保存した旧イメージ指定と設定に戻します。旧版は修正前の状態なので、戻した場合も外部由来の図は流さず、修正した版を再評価してください。
 
-## 4. 採用判断・記録
-
-採用前に固定SHA、イメージDigest、実際のビルドログ、テスト結果、Trivyのオプションと検出結果、既知の制約を日付入りの検証記録へ追記してください。既存利用環境の変更手順やロールバックは各運用環境側で管理し、この公開用リポジトリへ固有情報を書き込みません。
-
-このリポジトリはビルド構成を公開するものであり、実行環境の更新やビルド済みコンテナの配布は対象外です。
+運用固有の設定・ログ・認証情報は、この公開リポジトリに登録しないでください。

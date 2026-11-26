@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE="${1:-kroki-secure:0.34.0-flat}"
+IMAGE="${1:-kroki-secure:0.37.1}"
 if (( $# > 0 )); then shift; fi
 TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:latest}"
 

@@ -12,96 +12,70 @@ IssueやPull Requestへの対応も保証しません。このリポジトリを
 
 ## 対象と方針
 
-- Kroki 0.34.0をベースに、既存の図形式を削除せず更新する
-- Temurin 21.0.13+9へJava実行環境を差し替える
-- Ubuntu 24.04のAPTパッケージをビルド時に更新する
-- Kroki JARのJackson Databind / Guavaを修正版に更新し、Mavenで再ビルドする
-- D2 v0.9.0とGoat v0.5.1をGo 1.27.3でビルドし、D2の依存モジュールも更新する
-- D2の`golang.org/x/net v0.62.0`を維持する
-- 開発用パッケージを除去した後、`docker export/import`で最終イメージをフラット化する
-- HTTP公開を`127.0.0.1`に限定し、`KROKI_SAFE_MODE=secure`を維持する
-
-ソースのコミットSHAと依存バージョンは`Dockerfile`と`patches/`に記録しています。リリース時点の固定構成なので、後日そのまま安全であることを保証するものではありません。
+- 公式 `yuzutech/kroki:0.37.1`（Linux AMD64）をDigestで固定します。コンテナ内はUbuntu 26.04、Temurin 21.0.13.1+2です。WSLのUbuntu 24.04は更新不要です。
+- 上流のD2・TikZ・Bytefield修正を維持します。D2を再ビルドするときは、依存更新と一緒にKroki上流のファイルアクセス制限パッチを適用します。
+- 独自差分は、Kroki JARのGuava `33.8.0-jre` と、D2の `golang.org/x/net v0.62.0` および関連モジュールの更新です。Java、Jackson、Goatは上流の版を使います。
+- APTの一括更新、開発パッケージの削除、フラット化は既定ビルドでは行いません。APTの修正要否は新しいベースをスキャンして判断します。
+- ポート公開は `127.0.0.1` に限定し、`KROKI_SAFE_MODE=secure` を使います。
 
 ## 前提
 
-- Linux/WSL2上のDocker EngineとDocker Build
-- Linux AMD64（初版で確認した構成。ARM64は未検証）
-- イメージ・Maven・Goモジュールを取得できるネットワーク
-- ホスト上の`bash`とPython 3、検証用の`curl`
+- LinuxまたはWSL2のDocker Engine（Linux AMD64）、BuildKit
+- ビルド元イメージ、GitHub、Maven、Goモジュールを取得できるネットワーク
+- ホストの `bash` と、検証用の `curl`
 
-ホストOSへJava・Go・Mavenを直接インストールする必要はありません。
+ホストへのJava・Go・Mavenのインストールは不要です。
 
 ## ビルドと確認
+
+既存のコンテナを止めず、新しいタグと空いているローカルポートで試します。
 
 ```bash
 git clone https://github.com/skysht3/kroki-security-build-recipe.git
 cd kroki-security-build-recipe
 
-./scripts/build.sh
-docker run -d --name kroki-example --restart no \
+./scripts/build.sh kroki-secure:0.37.1
+docker run -d --name kroki-review --restart no \
   -p 127.0.0.1:8001:8000 \
   -e KROKI_SAFE_MODE=secure \
-  kroki-secure:0.34.0-flat
+  kroki-secure:0.37.1
 
-# 起動後、/healthに応答する状態で実行する
+# 起動後、HealthとPlantUML・D2・GoatのSVG変換を確認
 ./scripts/smoke-test.sh http://127.0.0.1:8001
+docker exec kroki-review java -version
+docker exec kroki-review d2 --version
+
 mkdir -p reports
-# 全重大度。未修正の検出も含める
-./scripts/scan.sh kroki-secure:0.34.0-flat --format json > reports/trivy-full.json
-# 修正版ありHIGH/CRITICALがあれば非0で終了する
-./scripts/scan.sh kroki-secure:0.34.0-flat \
+./scripts/scan.sh kroki-secure:0.37.1 --format json > reports/trivy-full.json
+./scripts/scan.sh kroki-secure:0.37.1 \
   --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
 
-# 検証用コンテナを不要になったときだけ削除
-docker rm -f kroki-example
+# 検証用コンテナだけを終了・削除
+docker stop kroki-review
+docker rm kroki-review
 ```
 
-ビルドでは上流リポジトリをタグで取得した後、コミットSHAが指定値に一致することを検査します。
-依存更新パッチを適用し、Mavenの`clean verify`とD2の`go mod verify`、`go test ./...`を含むステージからイメージを生成します。
-BuildKitキャッシュが有効なら、これらのステージを再利用します。
+`build.sh [イメージタグ]` はパッチの適用可否、タグとソースSHAの一致を確認してから、Mavenの `clean verify`、D2の `go mod verify` と `go test ./...` を含むビルドを実行します。出力は1タグで、既存タグの上書きは拒否します。やり直す場合は新しいタグを指定してください。
 
-`build.sh [最終タグ [フラット化前タグ]]`は、既定で`kroki-secure:0.34.0-flat-layered`を構築し、その後`kroki-secure:0.34.0-flat`を生成します。
-両タグをローカルに残し、サイズと設定を比較できるようにします。
-既存タグの上書きを拒否するため、再ビルド時は新しいタグ（例：`./scripts/build.sh kroki-secure:review-2`）を指定してください。
-同じ出力タグを使うビルドを並行実行しないでください。
-Dockerfileのみのビルドでは、フラット化前のイメージが生成されます。
+`scan.sh` はTrivyをコンテナで実行します。Dockerソケットの読み取り専用マウントにも強い権限があるため、信頼できるTrivyイメージだけを使ってください。
 
-`build-essential`、`gcc`、`g++`、`libc6-dev`、`linux-libc-dev`をAPTの依存関係に従って除去します。
-削除予定に想定外の実行時パッケージが含まれていればビルドを中止し、`autoremove`は実行しません。
-全開発用パッケージの網羅的な除去は行わず、その他の自動削除候補は残します。
-
-フラット化は元イメージの`Config`からEnv、Entrypoint、Cmd、User、WorkingDir、ExposedPorts、Labels、StopSignalを復元し、生成後に照合します。
-コンテナ作成時の設定を転記せず、元にないWorkingDirなどを追加しません。
-Volumes、Healthcheck、OnBuild、Shell、legacyのArgsEscapedなど、保持を保証できない設定があれば明示的に失敗します。
-中間コンテナは正常終了、エラー、SIGINT/SIGTERMの際に削除します。
-ホスト停止やSIGKILLなど、プロセスが後片付けを実行できない終了は対象外です。
-
-2026-11-05の実機検証では、既存の4,610,324,304 bytesから3,791,946,711 bytesへ削減しました（約818MB、17.75%）。
-設定の一致と4件のスモークテストを確認しています。
-検証条件、Trivyの残存検出、再実行コマンドは[検証記録](docs/VALIDATION_2026-11-05.md#正式な軽量化手順の実機検証)を参照してください。
-
-`scripts/scan.sh`はTrivyをコンテナで実行し、既定では全重大度を検査します。
-追加のTrivyオプションはイメージ名の後に指定できます。
-Dockerソケットの読み取り専用マウントでも強い権限が残るため、使用するTrivyイメージを信頼できるものに限定してください。
-`reports/`、イメージアーカイブ、ビルドログはGit管理から除外します。
+組織の環境へ持ち込む前に、利用する図形式・フォント・出力形式を上記に追加して確認してください。判定・切り戻し手順は[更新ガイド](docs/UPDATE_GUIDE.md)、検証の実施状況は[0.37.1の検証記録](docs/VALIDATION_2026-11-26.md)を参照してください。
 
 ## 構成
 
 | パス | 内容 |
 | --- | --- |
-| `Dockerfile` | Kroki・D2・Goatのソース取得、依存修正、ビルド、最終イメージ生成 |
-| `patches/kroki-server-pom.patch` | Jackson・Guavaの推移的依存を明示的に上書き |
-| `patches/d2-go-mod.patch` | D2の`golang.org/x/net`と関連モジュールを更新 |
-| `scripts/build.sh` | パッケージ除去を含むLinux AMD64ビルドとフラット化 |
-| `scripts/flatten-image.py` | 設定を照合し、ローカルの新規タグへexport/import |
-| `scripts/test_flatten_image.py` | 設定保持と失敗時処理の回帰テスト |
+| `Dockerfile` | 公式0.37.1ベースにGuava更新済みJARとD2を組み込む |
+| `patches/kroki-server-pom.patch` | Kroki JARのGuavaを更新 |
+| `patches/d2-go-mod.patch` | D2の `golang.org/x/net` と関連モジュールを更新 |
+| `scripts/build.sh` | Linux AMD64向けのビルド |
 | `scripts/smoke-test.sh` | Health・PlantUML・D2・GoatのSVG変換 |
-| `scripts/scan.sh` | Trivyによる全重大度検査と指定条件での評価 |
-| `docs/VALIDATION_2026-11-05.md` | 初回の実機検証記録 |
-| `docs/UPDATE_GUIDE.md` | 公式更新と独自差分の見直し手順 |
-| `docs/SECURITY_NOTES.md` | 検査範囲、セキュリティ上の前提・制約 |
-| `docs/READINESS.md` | 公開判断、既知制約、将来対応の整理 |
+| `scripts/scan.sh` | Trivyによる脆弱性検査 |
+| `scripts/flatten-image.py` | 旧レシピのフラット化ツール。現在のビルドでは呼び出さない |
+| `docs/UPDATE_GUIDE.md` | 上流確認・再ビルド・採用判断 |
+| `docs/VALIDATION_2026-11-26.md` | 0.37.1ベースの検証記録 |
+| `docs/VALIDATION_2026-11-05.md` | 0.34.0ベースの過去の検証記録 |
+| `docs/SECURITY_NOTES.md` / `docs/READINESS.md` | 前提と既知の制約 |
 | `THIRD_PARTY.md` | 上流OSS・再配布の留意点 |
 
 ## ライセンス
@@ -112,10 +86,6 @@ Dockerソケットの読み取り専用マウントでも強い権限が残る�
 
 上流Kroki、D2、Goat、Eclipse Temurin、Goおよびビルド時に取得される依存コンポーネントには、それぞれの上流ライセンスが適用されます。
 
-## 公開準備状況・既知の制約
+## 対応範囲
 
-現スコープ（Linux AMD64向けのビルドレシピ、ビルド済み成果物は非配布）では、既知の技術的な公開ブロッカーはありません。
-
-ARM64、全描画形式、キャッシュなし新規環境での完全ビルド、残存MEDIUM/LOW CVEの個別評価などは未検証・未評価です。これらを含む公開判断、許容する既知制約、将来対応候補は[公開準備状況と既知の制約](docs/READINESS.md)に集約しています。
-
-公式への不具合報告・修正の代わりになるものではありません。更新時は`docs/UPDATE_GUIDE.md`を参照してください。
+Linux AMD64向けのビルドレシピのみを提供します。ARM64、全描画形式、Mermaidなどの別コンテナは対象外です。検証時点や未実施の項目は[既知の制約](docs/READINESS.md)に記載しています。
